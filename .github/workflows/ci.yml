@@ -69,35 +69,29 @@ jobs:
        path: scout-report.sarif
 
  dast_scan:
-   name: DAST Scan
-   runs-on: ubuntu-latest
+    name: Run DAST Scan
+    runs-on: ubuntu-latest
 
-   steps:
-   - name: Checkout code
-     uses: actions/checkout@v2
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-   - name: Set up Docker
-     uses: docker-practice/actions-setup-docker@v1
-     with:
-       docker_version: '20.10.7'
+    - name: Deploy PyGoat
+      run: |
+        docker pull pygoat/pygoat:latest
+        docker run --rm -d -p 8000:8000 pygoat/pygoat:latest
 
-   - name: Deploy PyGoat
-     run: |
-       docker pull pygoat/pygoat:latest
-       docker run --rm -d -p 8000:8000 pygoat/pygoat:latest
+    - name: Set up OWASP ZAP
+      run: sudo apt-get update && sudo apt-get install -y zaproxy
 
-   - name: Run ZAP Scan
-     run: |
-       docker pull owasp/zap2docker-stable
-       docker run --rm -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py \
-       -t http://localhost:8000 -r zap-report.html
+    - name: Run OWASP ZAP
+      run: zap-cli quick-scan --self-contained --start-options '-daemon -port 8080' http://localhost:8000
 
-   - name: Upload DAST Report
-     uses: actions/upload-artifact@v3
-     if: always()
-     with:
-       name: dast-findings.html
-       path: zap-report.html
+    - name: Run OWASP ZAP Active Scan
+      run: zap-cli active-scan http://localhost:8000 -r zap-report.html
 
-
-       
+    - name: Upload ZAP Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: zap-report.html
+        path: reports/zap-report.html
